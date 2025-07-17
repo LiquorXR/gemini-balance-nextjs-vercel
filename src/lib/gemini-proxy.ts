@@ -104,6 +104,8 @@ export async function proxyRequest(request: NextRequest, pathPrefix: string) {
     if (
       geminiResponse.headers.get("Content-Type")?.includes("text/event-stream")
     ) {
+      statusCode = geminiResponse.status;
+      isSuccess = geminiResponse.ok;
       return new NextResponse(geminiResponse.body, {
         headers: {
           "Content-Type": "text/event-stream",
