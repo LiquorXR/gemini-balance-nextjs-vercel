@@ -75,7 +75,7 @@ export async function callGeminiApi({
           isSuccess: true,
           latency,
         },
-      }).catch((err: any) => {
+      }).catch((err: unknown) => {
         logger.error({ error: err }, "Failed to create request log in background.");
       });
       keyManager.resetKeyFailureCount(apiKey);
@@ -111,7 +111,7 @@ export async function callGeminiApi({
           isSuccess: false,
           latency,
         },
-      }).catch((err: any) => {
+      }).catch((err: unknown) => {
         logger.error({ error: err }, "Failed to create failed request log in background.");
       });
       // Fire-and-forget
@@ -122,7 +122,7 @@ export async function callGeminiApi({
           errorMessage,
           errorDetails: JSON.stringify(error),
         },
-      }).catch((err: any) => {
+      }).catch((err: unknown) => {
         logger.error({ error: err }, "Failed to create error log in background.");
       });
 
