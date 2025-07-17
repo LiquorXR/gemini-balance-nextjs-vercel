@@ -5,7 +5,7 @@ import {
   geminiToOpenAiStreamChunk,
 } from "@/lib/google-adapter";
 import { callImagenApi } from "@/lib/imagen-client";
-import logger from "@/lib/logger";
+import logger, { logErrorToDB } from "@/lib/logger";
 import {
   Content,
   EnhancedGenerateContentResponse,
@@ -184,8 +184,21 @@ export async function POST(request: NextRequest) {
 
     // For non-streamed or error responses, return them as is.
     return geminiResponse;
-  } catch (error) {
-    logger.error({ error }, "Critical error in OpenAI compatibility layer.");
+  } catch (e: any) {
+    const apiKey = request.headers.get("Authorization")?.replace("Bearer ", "");
+    logger.error({ error: e }, "Critical error in OpenAI compatibility layer.");
+
+    try {
+      await logErrorToDB({
+        apiKey,
+        errorType: e.name || "ApiError",
+        errorMessage: e.message,
+        errorDetails: e.stack || JSON.stringify(e),
+      });
+    } catch (dbError) {
+      console.error("Failed to log error to DB:", dbError);
+    }
+
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }

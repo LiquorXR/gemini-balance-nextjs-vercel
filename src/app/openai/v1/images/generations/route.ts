@@ -1,14 +1,15 @@
 import { isAuthenticated } from "@/lib/auth";
 import { callImagenApi } from "@/lib/imagen-client";
+import logger, { logErrorToDB } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest): Promise<Response> {
-  const authError = await isAuthenticated(request);
-  if (authError) {
-    return authError;
-  }
-
   try {
+    const authError = await isAuthenticated(request);
+    if (authError) {
+      return authError;
+    }
+
     const body = await request.json();
     const { prompt, n = 1, size = "1024x1024", response_format = "url" } = body;
 
@@ -27,12 +28,23 @@ export async function POST(request: NextRequest): Promise<Response> {
     });
 
     return NextResponse.json(imageResponse);
-  } catch (error) {
-    console.error("Error in image generation route:", error);
-    const errorMessage =
-      error instanceof Error ? error.message : "An unknown error occurred";
+  } catch (e: any) {
+    const apiKey = request.headers.get("Authorization")?.replace("Bearer ", "");
+    logger.error({ error: e }, "Error in openai/v1/images/generations route");
+
+    try {
+      await logErrorToDB({
+        apiKey,
+        errorType: e.name || "ApiError",
+        errorMessage: e.message,
+        errorDetails: e.stack || JSON.stringify(e),
+      });
+    } catch (dbError) {
+      console.error("Failed to log error to DB:", dbError);
+    }
+
     return NextResponse.json(
-      { error: "Failed to generate images.", details: errorMessage },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }

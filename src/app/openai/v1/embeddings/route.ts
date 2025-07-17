@@ -4,28 +4,29 @@ import {
   getRequestBody,
   getRequestHeaders,
 } from "@/lib/gemini-proxy";
+import logger, { logErrorToDB } from "@/lib/logger";
 import { getSettings } from "@/lib/settings";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest): Promise<Response> {
-  const authError = await isAuthenticated(request);
-  if (authError) {
-    return authError;
-  }
-
-  const { PROXY_URL } = await getSettings();
-
-  if (!PROXY_URL) {
-    return NextResponse.json(
-      {
-        error:
-          "Upstream proxy URL is not configured. Please set PROXY_URL in the settings.",
-      },
-      { status: 500 }
-    );
-  }
-
   try {
+    const authError = await isAuthenticated(request);
+    if (authError) {
+      return authError;
+    }
+
+    const { PROXY_URL } = await getSettings();
+
+    if (!PROXY_URL) {
+      return NextResponse.json(
+        {
+          error:
+            "Upstream proxy URL is not configured. Please set PROXY_URL in the settings.",
+        },
+        { status: 500 }
+      );
+    }
+
     const headers = getRequestHeaders(request);
     const body = await getRequestBody(request);
 
@@ -49,10 +50,23 @@ export async function POST(request: NextRequest): Promise<Response> {
         headers: response.headers,
       });
     }
-  } catch (error) {
-    console.error("Error proxying embeddings request:", error);
+  } catch (e: any) {
+    const apiKey = request.headers.get("Authorization")?.replace("Bearer ", "");
+    logger.error({ error: e }, "Error in openai/v1/embeddings route");
+
+    try {
+      await logErrorToDB({
+        apiKey,
+        errorType: e.name || "ApiError",
+        errorMessage: e.message,
+        errorDetails: e.stack || JSON.stringify(e),
+      });
+    } catch (dbError) {
+      console.error("Failed to log error to DB:", dbError);
+    }
+
     return NextResponse.json(
-      { error: "Failed to proxy request to upstream service." },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }
