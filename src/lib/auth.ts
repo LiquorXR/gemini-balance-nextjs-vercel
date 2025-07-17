@@ -1,4 +1,4 @@
-import logger from "@/lib/logger";
+import logger, { logErrorToDB } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getSettings } from "./settings";
 
@@ -43,6 +43,11 @@ export async function isAuthenticated(
 
   if (!apiKey) {
     logger.warn("Authentication failed: No API key provided.");
+    await logErrorToDB({
+      errorType: "authentication_error",
+      errorMessage: "Unauthorized. Please provide an API key.",
+      errorDetails: "No API key found in request.",
+    });
     return new NextResponse(
       JSON.stringify({
         error: {
@@ -66,9 +71,14 @@ export async function isAuthenticated(
 
     // If ALLOWED_TOKENS is not configured, deny all requests for security.
     if (allowedTokens.length === 0) {
-      logger.warn(
-        `Authentication failed: No ALLOWED_TOKENS configured in settings.`
-      );
+      const errorMessage = `Authentication failed: No ALLOWED_TOKENS configured in settings.`;
+      logger.warn(errorMessage);
+      await logErrorToDB({
+        apiKey,
+        errorType: "server_error",
+        errorMessage: "Service not configured for API access.",
+        errorDetails: errorMessage,
+      });
       return new NextResponse(
         JSON.stringify({
           error: {
@@ -82,9 +92,15 @@ export async function isAuthenticated(
     }
 
     if (!allowedTokens.includes(apiKey)) {
-      logger.warn(
-        `Authentication failed: Provided API key is not in the allowed list.`
-      );
+      const errorMessage = `Authentication failed: Provided API key is not in the allowed list.`;
+      logger.warn(errorMessage);
+      await logErrorToDB({
+        apiKey,
+        errorType: "invalid_request_error",
+        errorMessage:
+          "Incorrect API key provided. The provided API key is not authorized for this service.",
+        errorDetails: errorMessage,
+      });
       return new NextResponse(
         JSON.stringify({
           error: {
@@ -103,8 +119,15 @@ export async function isAuthenticated(
 
     // If we are here, the key is authorized to use the service.
     return null;
-  } catch (error) {
-    logger.error({ error }, "Database error during API key validation.");
+  } catch (error: unknown) {
+    const errorMessage = "Database error during API key validation.";
+    logger.error({ error }, errorMessage);
+    await logErrorToDB({
+      apiKey,
+      errorType: "server_error",
+      errorMessage: "Internal server error during authentication.",
+      errorDetails: error instanceof Error ? error.stack : JSON.stringify(error),
+    });
     return new NextResponse(
       JSON.stringify({
         error: {
