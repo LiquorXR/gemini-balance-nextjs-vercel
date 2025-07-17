@@ -1,7 +1,16 @@
 import { cycle } from "itertools";
+import { Agent } from "http";
+import { HttpsProxyAgent } from "https-proxy-agent";
 import { prisma } from "./db";
 import logger from "./logger";
 import { getSettings } from "./settings";
+
+const GOOGLE_API_HOST =
+  process.env.GOOGLE_API_HOST || "https://generativelanguage.googleapis.com";
+
+interface FetchOptions extends RequestInit {
+  agent?: Agent;
+}
 
 /**
  * Manages a pool of API keys, providing round-robin selection,
@@ -93,21 +102,43 @@ export class KeyManager {
 
   public async verifyKey(key: string): Promise<boolean> {
     try {
-      const { GoogleGenerativeAI } = await import("@google/generative-ai");
       const settings = await getSettings();
       const healthCheckModel = settings.HEALTH_CHECK_MODEL;
-      const genAI = new GoogleGenerativeAI(key);
-      const model = genAI.getGenerativeModel({ model: healthCheckModel });
-      await model.generateContent("hi");
+      const url = `${GOOGLE_API_HOST}/v1beta/models/${healthCheckModel}:generateContent?key=${key}`;
+
+      const fetchOptions: FetchOptions = {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ text: "hi" }] }] }),
+      };
+
+      if (settings.PROXY_URL) {
+        fetchOptions.agent = new HttpsProxyAgent(settings.PROXY_URL);
+      }
+
+      const response = await fetch(url, fetchOptions);
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(
+          `Health check failed with status ${
+            response.status
+          }: ${JSON.stringify(errorBody)}`
+        );
+      }
+
       this.resetKeyFailureCount(key);
       logger.info(
         { key: `...${key.slice(-4)}` },
         "Key is now active after successful health check."
       );
       return true;
-    } catch {
+    } catch (error) {
       logger.warn(
-        { key: `...${key.slice(-4)}` },
+        {
+          key: `...${key.slice(-4)}`,
+          error: error instanceof Error ? error.message : String(error),
+        },
         "Key remains inactive after failed health check."
       );
       return false;
@@ -147,7 +178,9 @@ export function resetKeyManager() {
 
 async function createKeyManager(): Promise<KeyManager> {
   // 1. Load keys exclusively from the database
-  const keysFromDb = (await prisma.apiKey.findMany()).map((k) => k.key);
+  const keysFromDb = (await prisma.apiKey.findMany()).map(
+    (k: { key: string }) => k.key
+  );
 
   // 2. Load settings using the settings service
   const settings = await getSettings();

@@ -202,6 +202,20 @@ export async function proxyRequest(request: NextRequest, pathPrefix: string) {
     }
 
     logger.error({ error }, "Error proxying to Gemini");
+
+    // Also log the error to the database
+    await prisma.errorLog.create({
+      data: {
+        apiKey: apiKey,
+        errorType: "proxy_error",
+        errorMessage: errorMessage,
+        errorDetails:
+          error instanceof Error
+            ? JSON.stringify(error, Object.getOwnPropertyNames(error))
+            : "{}",
+      },
+    });
+
     return NextResponse.json(
       { error: "Failed to proxy request to Gemini" },
       { status: 500 }
