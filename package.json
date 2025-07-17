@@ -4,11 +4,11 @@
     "private": true,
     "scripts": {
         "dev": "next dev",
-        "build": "prisma migrate deploy && prisma generate && next build",
+        "build": "next build",
         "start": "next start",
         "lint": "next lint",
         "db:migrate": "prisma migrate dev",
-        "postinstall": "prisma generate"
+        "postinstall": "prisma migrate deploy && prisma generate"
     },
     "dependencies": {
         "@formatjs/intl-localematcher": "^0.6.1",
