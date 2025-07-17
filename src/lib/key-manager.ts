@@ -134,6 +134,7 @@ export class KeyManager {
       );
       return true;
     } catch (error) {
+      this.handleApiFailure(key);
       logger.warn(
         {
           key: `...${key.slice(-4)}`,

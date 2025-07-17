@@ -68,9 +68,9 @@ export async function proxyRequest(request: NextRequest, pathPrefix: string) {
   let model = "unknown";
   let statusCode: number | null = null;
   let isSuccess = false;
+  const keyManager = await getKeyManager();
 
   try {
-    const keyManager = await getKeyManager();
     apiKey = keyManager.getNextWorkingKey();
 
     // Reconstruct the original Gemini API URL
@@ -120,7 +120,6 @@ export async function proxyRequest(request: NextRequest, pathPrefix: string) {
     // Check if the response from Gemini is not OK
     if (!geminiResponse.ok) {
       statusCode = geminiResponse.status;
-      keyManager.handleApiFailure(apiKey);
       const errorBody = await geminiResponse.json();
       const errorMessage = errorBody.error?.message || "Unknown error";
 
@@ -222,6 +221,9 @@ export async function proxyRequest(request: NextRequest, pathPrefix: string) {
     );
   } finally {
     if (statusCode) {
+      if (!isSuccess && apiKey !== "unknown") {
+        keyManager.handleApiFailure(apiKey);
+      }
       const latency = Date.now() - startTime;
       await prisma.requestLog.create({
         data: {
