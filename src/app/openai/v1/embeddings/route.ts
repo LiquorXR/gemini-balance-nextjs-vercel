@@ -50,17 +50,26 @@ export async function POST(request: NextRequest): Promise<Response> {
         headers: response.headers,
       });
     }
-  } catch (e: any) {
+  } catch (e) {
     const apiKey = request.headers.get("Authorization")?.replace("Bearer ", "");
     logger.error({ error: e }, "Error in openai/v1/embeddings route");
 
     try {
-      await logErrorToDB({
-        apiKey,
-        errorType: e.name || "ApiError",
-        errorMessage: e.message,
-        errorDetails: e.stack || JSON.stringify(e),
-      });
+      if (e instanceof Error) {
+        await logErrorToDB({
+          apiKey,
+          errorType: e.name,
+          errorMessage: e.message,
+          errorDetails: e.stack,
+        });
+      } else {
+        await logErrorToDB({
+          apiKey,
+          errorType: "UnknownError",
+          errorMessage: "An unknown error occurred",
+          errorDetails: JSON.stringify(e),
+        });
+      }
     } catch (dbError) {
       console.error("Failed to log error to DB:", dbError);
     }

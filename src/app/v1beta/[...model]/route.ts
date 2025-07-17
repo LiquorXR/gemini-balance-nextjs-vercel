@@ -11,17 +11,26 @@ export async function POST(request: NextRequest) {
     }
     // This will proxy requests from /v1beta/... to the Google API's /v1beta/...
     return await proxyRequest(request, "");
-  } catch (e: any) {
+  } catch (e) {
     const apiKey = request.headers.get("Authorization")?.replace("Bearer ", "");
     logger.error({ error: e }, "Error in v1beta/[...model] route");
 
     try {
-      await logErrorToDB({
-        apiKey,
-        errorType: e.name || "ApiError",
-        errorMessage: e.message,
-        errorDetails: e.stack || JSON.stringify(e),
-      });
+      if (e instanceof Error) {
+        await logErrorToDB({
+          apiKey,
+          errorType: e.name,
+          errorMessage: e.message,
+          errorDetails: e.stack,
+        });
+      } else {
+        await logErrorToDB({
+          apiKey,
+          errorType: "UnknownError",
+          errorMessage: "An unknown error occurred",
+          errorDetails: JSON.stringify(e),
+        });
+      }
     } catch (dbError) {
       console.error("Failed to log error to DB:", dbError);
     }

@@ -8,17 +8,26 @@ export async function GET(request: NextRequest) {
     // The proxy will handle fetching, and the adapter will handle formatting.
     // We pass a special prefix to be replaced, specific to this OpenAI-compatible route.
     return await proxyRequest(request, "/openai");
-  } catch (e: any) {
+  } catch (e) {
     const apiKey = request.headers.get("Authorization")?.replace("Bearer ", "");
     logger.error({ error: e }, "Error in openai/v1/models route");
 
     try {
-      await logErrorToDB({
-        apiKey,
-        errorType: e.name || "ApiError",
-        errorMessage: e.message,
-        errorDetails: e.stack || JSON.stringify(e),
-      });
+      if (e instanceof Error) {
+        await logErrorToDB({
+          apiKey,
+          errorType: e.name,
+          errorMessage: e.message,
+          errorDetails: e.stack,
+        });
+      } else {
+        await logErrorToDB({
+          apiKey,
+          errorType: "UnknownError",
+          errorMessage: "An unknown error occurred",
+          errorDetails: JSON.stringify(e),
+        });
+      }
     } catch (dbError) {
       console.error("Failed to log error to DB:", dbError);
     }
