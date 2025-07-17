@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
     // This will proxy requests from /v1beta/... to the Google API's /v1beta/...
     return await proxyRequest(request, "");
-  } catch (e) {
+  } catch (e: unknown) {
     const apiKey = request.headers.get("Authorization")?.replace("Bearer ", "");
     logger.error({ error: e }, "Error in v1beta/[...model] route");
 

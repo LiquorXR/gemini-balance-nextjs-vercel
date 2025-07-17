@@ -50,7 +50,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         headers: response.headers,
       });
     }
-  } catch (e) {
+  } catch (e: unknown) {
     const apiKey = request.headers.get("Authorization")?.replace("Bearer ", "");
     logger.error({ error: e }, "Error in openai/v1/embeddings route");
 

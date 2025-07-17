@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
       return authError;
     }
     return await proxyRequest(request, "/gemini");
-  } catch (e) {
+  } catch (e: unknown) {
     const apiKey = request.headers.get("Authorization")?.replace("Bearer ", "");
     logger.error({ error: e }, "Error in gemini/v1beta/[...model] route");
 

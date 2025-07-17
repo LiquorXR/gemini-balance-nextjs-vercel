@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     // The proxy will handle fetching, and the adapter will handle formatting.
     // We pass a special prefix to be replaced, specific to this OpenAI-compatible route.
     return await proxyRequest(request, "/openai");
-  } catch (e) {
+  } catch (e: unknown) {
     const apiKey = request.headers.get("Authorization")?.replace("Bearer ", "");
     logger.error({ error: e }, "Error in openai/v1/models route");
 

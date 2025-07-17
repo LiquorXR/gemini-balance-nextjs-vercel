@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
 
     // For non-streamed or error responses, return them as is.
     return geminiResponse;
-  } catch (e) {
+  } catch (e: unknown) {
     const apiKey = request.headers.get("Authorization")?.replace("Bearer ", "");
     logger.error({ error: e }, "Critical error in OpenAI compatibility layer.");
 

@@ -28,7 +28,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     });
 
     return NextResponse.json(imageResponse);
-  } catch (e) {
+  } catch (e: unknown) {
     const apiKey = request.headers.get("Authorization")?.replace("Bearer ", "");
     logger.error({ error: e }, "Error in openai/v1/images/generations route");
 
