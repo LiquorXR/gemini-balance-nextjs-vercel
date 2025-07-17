@@ -6,7 +6,7 @@ import {
   GenerateContentRequest,
   GoogleGenerativeAI,
 } from "@google/generative-ai";
-import { NextResponse } from "next/server";
+import logger from "./logger";
 
 export interface GeminiClientRequest {
   model: string;
@@ -65,14 +65,18 @@ export async function callGeminiApi({
       const stream = sdkStreamToReadableStream(result.stream);
 
       const latency = Date.now() - startTime;
-      await prisma.requestLog.create({
+      // Fire-and-forget the log creation. Do not await it.
+      // This prevents the response from being blocked by the database write.
+      prisma.requestLog.create({
         data: {
-          apiKey: apiKey.slice(-4),
+          apiKey: apiKey, // Store the full key for tracking purposes
           model,
           statusCode: 200, // Success
           isSuccess: true,
           latency,
         },
+      }).catch((err: any) => {
+        logger.error({ error: err }, "Failed to create request log in background.");
       });
       keyManager.resetKeyFailureCount(apiKey);
 
@@ -98,22 +102,28 @@ export async function callGeminiApi({
         statusCode = error.httpStatus;
       }
 
-      await prisma.requestLog.create({
+      // Fire-and-forget
+      prisma.requestLog.create({
         data: {
-          apiKey: apiKey.slice(-4),
+          apiKey: apiKey, // Store the full key
           model,
           statusCode,
           isSuccess: false,
           latency,
         },
+      }).catch((err: any) => {
+        logger.error({ error: err }, "Failed to create failed request log in background.");
       });
-      await prisma.errorLog.create({
+      // Fire-and-forget
+      prisma.errorLog.create({
         data: {
-          apiKey: apiKey.slice(-4),
+          apiKey: apiKey, // Store the full key
           errorType: `SDK Error (Attempt ${i + 1})`,
           errorMessage,
           errorDetails: JSON.stringify(error),
         },
+      }).catch((err: any) => {
+        logger.error({ error: err }, "Failed to create error log in background.");
       });
 
       if (statusCode >= 400 && statusCode < 500) {
@@ -130,7 +140,7 @@ export async function callGeminiApi({
     },
   });
 
-  return NextResponse.json(
+  return Response.json(
     {
       error: "Service unavailable",
       details: lastError ? JSON.stringify(lastError) : "Unknown error",
