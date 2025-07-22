@@ -1,0 +1,11 @@
+{
+    "loginPage": {
+        "title": "Welcome",
+        "description": "Enter your Auth Token to sign in. If this is your first time, the token you enter will be set as the new password.",
+        "tokenLabel": "Auth Token",
+        "signInButton": "Sign In / Set Token",
+        "error_token_empty": "Auth token cannot be empty.",
+        "error_token_invalid": "Invalid auth token.",
+        "error_server_internal": "An internal server error occurred."
+    }
+}
